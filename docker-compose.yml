@@ -85,12 +85,13 @@ services:
       - PYTHONPATH=/app/pythonpath
     volumes:
       - ./superset_config.py:/app/pythonpath/superset_config.py
+      - ./register_trino_logic.py:/app/pythonpath/register_trino_logic.py
       - superset_home:/app/superset_home
     command: >
       bash -c "
         superset db upgrade &&
-        superset fab create-admin --username ${SUPERSET_ADMIN_USER:-admin} --firstname Admin --lastname User --email admin@example.com --password ${SUPERSET_ADMIN_PASSWORD:-admin} &&
         superset init &&
+        superset shell <<< 'exec(open(\"/app/pythonpath/register_trino_logic.py\").read())' &&
         superset run -p 8088 --host 0.0.0.0 --with-threads --reload --debug
       "
 

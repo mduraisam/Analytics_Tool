@@ -1,5 +1,45 @@
 FROM apache/superset:latest
 
 USER root
-RUN pip install psycopg2-binary redis pillow
+# Set a dummy SECRET_KEY so superset pip install does not refuse to start.
+ENV SUPERSET_SECRET_KEY=dummy_secret_key_for_build
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3-pip \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install required Python packages in root environment
+RUN pip3 install --no-cache-dir \
+    trino[sqlalchemy] \
+    psycopg2-binary \
+    && pip3 show trino psycopg2-binary \
+    && python3 -c "import trino; print('Trino package version:', trino.__version__)" \
+    && python3 -c "import psycopg2; print('psycopg2 version:', psycopg2.__version__)"
+
+USER superset 
+
+# Install required Python packages in superset user environment
+RUN pip install --no-cache-dir \
+    trino[sqlalchemy] \
+    psycopg2-binary \
+    && pip show trino psycopg2-binary \
+    && python -c "import trino; print('Trino package version:', trino.__version__)" \
+    && python -c "import psycopg2; print('psycopg2 version:', psycopg2.__version__)"
+
+# Verify the installation in the superset environment
+RUN python -c "from trino import dbapi; print('Trino DBAPI available')" && \
+    python -c "from trino.sqlalchemy import URL; print('Trino SQLAlchemy URL available')" && \
+    python -c "import psycopg2; print('psycopg2 available')"
+
+# Switch back to root for any additional setup
+USER root
+
+# Final verification
+RUN python3 -c "import trino; print('Final verification - Trino package available')" && \
+    python3 -c "import psycopg2; print('Final verification - psycopg2 available')"
+
 USER superset 

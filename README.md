@@ -1,99 +1,140 @@
-# Analytics Tool
+# Analytics Tool with Trino and Apache Superset
 
-This project sets up a development environment for analytics using Docker Compose. It integrates PostgreSQL, Apache Superset, Trino, and pgAdmin.
-
-## Overview
-
-- **Postgres:** A PostgreSQL database (analytics_db) is created and initialized with a Retail Banking DDL (see `init_retail_banking.sql`).
-- **Trino:** A custom Trino image (built from `Dockerfile.trino`) is used to copy custom config files (from `trino/etc`) into `/etc/trino` at build time (to avoid macOS Docker bind mount issues).
-- **Apache Superset:** A web-based analytics dashboard (available at http://localhost: 8088) is configured to query data from PostgreSQL (via Trino).
-- **pgAdmin:** A web UI for PostgreSQL (available at http://localhost: 5050) is integrated. Use the JDBC URL (jdbc:postgresql://postgres: 5432/analytics_db) to connect in pgAdmin.
-
-## Prerequisites
-
-- Docker and Docker Compose (latest version recommended).
-- (Optional) A Linux VM or a non-synced folder (if you encounter macOS Docker issues).
-
-## Getting Started
-
-1. Clone this repository.
-2. (Optional) Review and adjust the Retail Banking DDL (`init_retail_banking.sql`) if needed.
-3. Run the stack:
-   ```sh
-   docker-compose down -v && docker-compose up -d
-   ```
-4. **Postgres:** The database (analytics_db) is created and initialized (via `init_retail_banking.sql`).
-5. **Trino:** A custom Trino image is built (using `Dockerfile.trino`) so that custom configs (from `trino/etc`) are copied into `/etc/trino` at build time.
-6. **Apache Superset:** Access the dashboard at http://localhost: 8088 (default admin/admin).
-7. **pgAdmin:** Access the PostgreSQL web UI at http://localhost: 5050 (default admin@example.com/admin). Use the JDBC URL (jdbc:postgresql://postgres: 5432/analytics_db) to connect.
-
-## Troubleshooting
-
-- **Trino Java Error:** If you see "could not exec java to determine jvm version: exit status 1" (even with a custom image), it is likely a Docker Desktop for Mac issue. Try running on a Linux VM or a non-synced folder.
-- **pgAdmin:** Ensure that the Postgres service is healthy (pgAdmin depends on it) and that you use the correct JDBC URL (jdbc:postgresql://postgres: 5432/analytics_db) in pgAdmin's "Connection" tab.
-
-## Additional Notes
-
-- The Retail Banking DDL (`init_retail_banking.sql`) is mounted into Postgres's `/docker-entrypoint-initdb.d/` so that it runs on first startup (and is idempotent).
-- A custom Trino image (using `Dockerfile.trino`) is used to avoid macOS Docker bind mount issues.
+This project sets up an analytics environment using Trino (formerly PrestoSQL) for querying data and Apache Superset for visualization and analytics.
 
 ## Components
 
-- **PostgreSQL**: Main database running on port 5432
-- **Apache Superset**: Web UI accessible at http://localhost:8088
-- **Trino**: Query engine running on port 8084
+- **Trino**: Distributed SQL query engine
+- **Apache Superset**: Modern data exploration and visualization platform
+- **PostgreSQL**: Used as metadata database for Superset
+- **Redis**: Used for caching and async tasks in Superset
+- **pgAdmin**: Web-based PostgreSQL administration tool
+
+## Prerequisites
+
+- Docker
+- Docker Compose
+- Git
+
+## Setup Instructions
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd analytics-tool
+```
+
+2. Start the services:
+```bash
+docker-compose up -d
+```
+
+3. Initialize Superset:
+```bash
+docker-compose exec superset superset db upgrade
+docker-compose exec superset superset init
+```
+
+4. Create an admin user for Superset:
+```bash
+docker-compose exec superset superset fab create-admin \
+    --username admin \
+    --firstname Superset \
+    --lastname Admin \
+    --email admin@example.com \
+    --password admin
+```
 
 ## Accessing the Services
 
 - **Superset**: http://localhost:8088
-  - Username: admin
-  - Password: admin
+  - Default credentials: admin/admin
+- **Trino**: http://localhost:8080
+- **pgAdmin**: http://localhost:5050
+  - Default credentials: admin@admin.com/admin
 
-- **PostgreSQL**:
-  - Host: localhost
-  - Port: 5432
-  - Database: analytics_db
-  - Username: analytics
-  - Password: analytics123
+## Configuration Details
 
-- **Trino**:
-  - Host: localhost
-  - Port: 8084
+### Superset Configuration
+The Superset container has been customized with the following dependencies:
+- Trino SQLAlchemy dialect for Trino database connectivity
+- psycopg2-binary for PostgreSQL connectivity
+- Additional system dependencies for building Python packages
 
-## Setting up Superset with Trino
+Key features of the Superset setup:
+- Custom Dockerfile (Dockerfile.superset) with necessary dependencies
+- Persistent volume for Superset configuration
+- Integration with Trino for data querying
+- PostgreSQL backend for metadata storage
+- Redis for caching and async operations
 
-1. Log in to Superset (http://localhost:8088)
-2. Go to Data → Databases
-3. Click "+ Database"
-4. Select "Trino" as the database type
-5. Use the following connection string:
-   ```
-   trino://trino:8084/postgresql/analytics_db
-   ```
-6. Test the connection and save
+### Trino Configuration
+- Custom catalog configuration for data sources
+- Persistent volume for Trino configuration
+- Exposed on port 8080
 
-## Creating Your First Dashboard
+### Database Setup
+- PostgreSQL instance for Superset metadata
+- Persistent volume for database storage
+- pgAdmin for database management
 
-1. In Superset, go to Data → Datasets
-2. Click "+ Dataset"
-3. Select the Trino database
-4. Choose a table from your PostgreSQL database
-5. Create visualizations and add them to a dashboard
+## Recent Updates
 
-## Stopping the Services
+### Dockerfile.superset Updates
+The Superset Dockerfile has been enhanced with:
+1. System Dependencies:
+   - Added build-essential for compiling Python packages
+   - Added libpq-dev for PostgreSQL development
+   - Updated Python package management
 
+2. Python Package Installation:
+   - Added trino[sqlalchemy] for Trino connectivity
+   - Added psycopg2-binary for PostgreSQL connectivity
+   - Installation verification steps for both packages
+
+3. Environment Setup:
+   - Proper user context switching (root/superset)
+   - Package installation in both root and superset user environments
+   - Verification steps to ensure proper installation
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Issues**
+   - Ensure PostgreSQL is running: `docker-compose ps`
+   - Check logs: `docker-compose logs postgres`
+
+2. **Trino Connection Issues**
+   - Verify Trino is running: `docker-compose ps`
+   - Check Trino logs: `docker-compose logs trino`
+   - Ensure proper catalog configuration
+
+3. **Superset Issues**
+   - Check Superset logs: `docker-compose logs superset`
+   - Verify all dependencies are installed
+   - Ensure proper database initialization
+
+### Logs and Debugging
+To view logs for any service:
 ```bash
-docker-compose down
+docker-compose logs <service-name>
 ```
 
-To remove all data (including volumes):
+To rebuild a specific service:
 ```bash
-docker-compose down -v
+docker-compose build --no-cache <service-name>
+docker-compose up -d <service-name>
 ```
 
-## Notes
+## Contributing
 
-- The PostgreSQL data is persisted in a Docker volume
-- Superset configuration is stored in a Docker volume
-- Default credentials are set for development purposes only
-- For production use, please change all default passwords and secrets 
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+[Your License Here] 
