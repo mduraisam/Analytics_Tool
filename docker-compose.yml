@@ -38,6 +38,7 @@ services:
       - "8084:8080"
     volumes:
       - trino_data:/var/trino
+      - ./trino/etc/jvm.config:/etc/trino/jvm.config
     user: "0:0"
     depends_on:
       postgres:
@@ -45,6 +46,7 @@ services:
     environment:
       - TRINO_JVM_MAX_HEAP_SIZE=2G
       - TRINO_DISCOVERY_URI=http://localhost:8080
+      - TRINO_JVM_CONFIG=/etc/trino/jvm.config
     command: >
       /usr/lib/trino/bin/launcher run --etc-dir /etc/trino
 
