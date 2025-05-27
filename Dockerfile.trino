@@ -1,0 +1,4 @@
+FROM trinodb/trino:latest
+
+# Copy your custom config files (from ./trino/etc) into /etc/trino
+COPY trino/etc /etc/trino 
